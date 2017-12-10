@@ -21,7 +21,6 @@ type Gocial struct {
 	driver, state string
 	scopes        []string
 	conf          *oauth2.Config
-	User          structs.User
 	Token         *oauth2.Token
 }
 
@@ -101,20 +100,20 @@ func (g *Gocial) Redirect(clientID, clientSecret, redirectURL string) (string, e
 }
 
 // Handle callback from provider
-func (g *Gocial) Handle(state, code string) error {
+func (g *Gocial) Handle(state, code string) (*structs.User, error) {
 	// Handle the exchange code to initiate a transport.
 	if g.state != state {
-		return fmt.Errorf("Invalid state: %s", state)
+		return nil, fmt.Errorf("Invalid state: %s", state)
 	}
 
 	// Check if driver is valid
 	if !inSlice(g.driver, complexKeys(apiMap)) {
-		return fmt.Errorf("Driver not valid: %s", g.driver)
+		return nil, fmt.Errorf("Driver not valid: %s", g.driver)
 	}
 
 	token, err := g.conf.Exchange(oauth2.NoContext, code)
 	if err != nil {
-		return fmt.Errorf("oAuth exchanged failed: %s", err.Error())
+		return nil, fmt.Errorf("oAuth exchanged failed: %s", err.Error())
 	}
 
 	client := g.conf.Client(oauth2.NoContext, token)
@@ -129,14 +128,14 @@ func (g *Gocial) Handle(state, code string) error {
 	// Get user info
 	req, err := client.Get(driverAPIMap["endpoint"] + driverAPIMap["userEndpoint"])
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	defer req.Body.Close()
 	res, _ := ioutil.ReadAll(req.Body)
 	data, err := jsonDecode(res)
 	if err != nil {
-		return fmt.Errorf("Error decoding JSON: %s", err.Error())
+		return nil, fmt.Errorf("Error decoding JSON: %s", err.Error())
 	}
 
 	// Scan all fields and dispatch through the mapping
@@ -158,10 +157,7 @@ func (g *Gocial) Handle(state, code string) error {
 	// Custom callback
 	callbackMap[g.driver](client, &gUser)
 
-	// Update the struct
-	g.User = gUser
-
-	return nil
+	return &gUser, nil
 }
 
 // Generate a random token

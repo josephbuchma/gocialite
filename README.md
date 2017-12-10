@@ -132,17 +132,17 @@ func callbackHandler(c *gin.Context) {
 	provider := c.Param("provider")
 
 	// Handle callback and check for errors
-	err := gocial.Driver(provider).Handle(state, code)
+	user, err := gocial.Driver(provider).Handle(state, code)
 	if err != nil {
 		c.Writer.Write([]byte("Error: " + err.Error()))
 		return
 	}
 
   // Print in terminal user information
-	fmt.Printf("%#v", gocial.User)
+	fmt.Printf("%#v", user)
  
 	// If no errors, show a success message
-	c.Writer.Write([]byte("Welcome, " + gocial.User.FullName))
+	c.Writer.Write([]byte("Welcome, " + user.FullName))
 }
 ```
 
